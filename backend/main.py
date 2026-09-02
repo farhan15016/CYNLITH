@@ -61,9 +61,12 @@ def create_study_session(request: StudySessionRequest):
         mode=request.mode,
     )
 
+    lesson = session.generate_lesson()
+
     return {
         "status": "created",
         "session": session.__dict__,
+        "lesson": lesson,
     }
 
 @app.get("/profile")
