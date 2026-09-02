@@ -1,3 +1,4 @@
+from backend.progress import LearningProgress
 from backend.study import StudySession
 from backend.assessment import Assessment
 from fastapi import FastAPI
@@ -115,11 +116,18 @@ def evaluate_answer(request: AnswerEvaluationRequest):
         request.answer,
     )
 
+    progress = LearningProgress(
+        subject=request.subject,
+        topic=request.topic,
+    )
+
+    progress.record_result(evaluation)
+
     return {
         "status": "evaluated",
         "evaluation": evaluation,
+        "progress": progress.__dict__,
     }
-
 
 @app.get("/profile")
 def profile():
