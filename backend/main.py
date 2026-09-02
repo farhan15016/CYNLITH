@@ -6,8 +6,11 @@ from backend.database import (
     init_db,
     save_message,
     get_messages,
-    save_memory,
     get_memories,
+    save_profile,
+    get_profile,
+    save_subject,
+    get_subjects,
 )
 
 app = FastAPI(title="Cynlith API")
@@ -17,10 +20,21 @@ init_db()
 
 class ChatRequest(BaseModel):
     message: str
+    subject: str | None = None
 
 
 class ChatResponse(BaseModel):
     response: str
+
+
+class ProfileRequest(BaseModel):
+    key: str
+    value: str
+
+
+class SubjectRequest(BaseModel):
+    subject: str
+    level: str
 
 
 @app.get("/")
@@ -31,27 +45,104 @@ def root():
     }
 
 
+@app.get("/profile")
+def profile():
+    return {
+        "profile": get_profile()
+    }
+
+
+@app.post("/profile")
+def update_profile(request: ProfileRequest):
+    save_profile(request.key, request.value)
+
+    return {
+        "status": "saved",
+        "profile": get_profile()
+    }
+
+
+@app.get("/subjects")
+def subjects():
+    return {
+        "subjects": get_subjects()
+    }
+
+
+@app.post("/subjects")
+def update_subject(request: SubjectRequest):
+    save_subject(request.subject, request.level)
+
+    return {
+        "status": "saved",
+        "subjects": get_subjects()
+    }
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat_with_cynthia(request: ChatRequest):
     history = get_messages()
+    profile_data = get_profile()
+    subjects_data = get_subjects()
     memories = get_memories()
 
-    memory_context = "\n".join(
-        f"{item['key']}: {item['value']}"
-        for item in memories
-    )
+    context_parts = []
 
-    enhanced_message = request.message
-
-    if memory_context:
-        enhanced_message = (
-            f"Known learner information:\n{memory_context}\n\n"
-            f"Learner's message:\n{request.message}"
+    if request.subject:
+        current_level = next(
+            (
+                item["level"]
+                for item in subjects_data
+                if item["subject"].lower() == request.subject.lower()
+            ),
+            None,
         )
 
+        context_parts.append(
+            f"Current learning subject: {request.subject}"
+        )
+
+        if current_level:
+            context_parts.append(
+                f"Current subject proficiency: {current_level}"
+            )
+
+    if profile_data:
+        profile_context = "\n".join(
+            f"{item['key']}: {item['value']}"
+            for item in profile_data
+        )
+
+        context_parts.append(
+            f"Learner profile:\n{profile_context}"
+        )
+
+    if subjects_data:
+        subject_context = "\n".join(
+            f"{item['subject']}: {item['level']}"
+            for item in subjects_data
+        )
+
+        context_parts.append(
+            f"Learner subjects and levels:\n{subject_context}"
+        )
+
+    if memories:
+        memory_context = "\n".join(
+            f"{item['key']}: {item['value']}"
+            for item in memories
+        )
+
+        context_parts.append(
+            f"Known learner information:\n{memory_context}"
+        )
+
+    learner_context = "\n\n".join(context_parts)
+
     response = ask_cynthia(
-        message=enhanced_message,
+        message=request.message,
         history=history,
+        learner_context=learner_context,
     )
 
     save_message("user", request.message)

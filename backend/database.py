@@ -1,5 +1,6 @@
 import sqlite3
 
+
 DB_NAME = "backend/cynlith.db"
 
 
@@ -19,6 +20,22 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             key TEXT NOT NULL,
             value TEXT NOT NULL
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS learner_profile (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT NOT NULL UNIQUE,
+            value TEXT NOT NULL
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS learner_subjects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subject TEXT NOT NULL UNIQUE,
+            level TEXT NOT NULL
         )
     """)
 
@@ -77,4 +94,66 @@ def get_memories():
     return [
         {"key": key, "value": value}
         for key, value in rows
+    ]
+
+
+def save_profile(key: str, value: str):
+    conn = sqlite3.connect(DB_NAME)
+
+    conn.execute(
+        """
+        INSERT INTO learner_profile (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """,
+        (key, value)
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_profile():
+    conn = sqlite3.connect(DB_NAME)
+
+    rows = conn.execute(
+        "SELECT key, value FROM learner_profile ORDER BY id"
+    ).fetchall()
+
+    conn.close()
+
+    return [
+        {"key": key, "value": value}
+        for key, value in rows
+    ]
+
+
+def save_subject(subject: str, level: str):
+    conn = sqlite3.connect(DB_NAME)
+
+    conn.execute(
+        """
+        INSERT INTO learner_subjects (subject, level)
+        VALUES (?, ?)
+        ON CONFLICT(subject) DO UPDATE SET level = excluded.level
+        """,
+        (subject, level)
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_subjects():
+    conn = sqlite3.connect(DB_NAME)
+
+    rows = conn.execute(
+        "SELECT subject, level FROM learner_subjects ORDER BY id"
+    ).fetchall()
+
+    conn.close()
+
+    return [
+        {"subject": subject, "level": level}
+        for subject, level in rows
     ]
