@@ -9,6 +9,7 @@ app = FastAPI(title="Cynlith API")
 
 class ChatRequest(BaseModel):
     message: str
+    history: list[dict] = []
 
 
 class ChatResponse(BaseModel):
@@ -22,5 +23,9 @@ def root():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_with_cynthia(request: ChatRequest):
-    response = ask_cynthia(request.message)
+    response = ask_cynthia(
+        message=request.message,
+        history=request.history,
+    )
+
     return ChatResponse(response=response)
