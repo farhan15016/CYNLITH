@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from ai.cynthia import ask_cynthia
-from backend.memory import add_message, get_history
+from backend.memory import add_memory, get_history
 
 app = FastAPI(title="Cynlith API")
 
@@ -29,7 +29,7 @@ def chat_with_cynthia(request: ChatRequest):
         history=history,
     )
 
-    add_message("user", request.message)
-    add_message("assistant", response)
+    add_memory("user", request.message)
+    add_memory("assistant", response)
 
     return ChatResponse(response=response)
