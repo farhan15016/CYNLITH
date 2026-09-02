@@ -1,3 +1,4 @@
+from backend.study import StudySession
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -36,6 +37,12 @@ class SubjectRequest(BaseModel):
     subject: str
     level: str
 
+class StudySessionRequest(BaseModel):
+    subject: str
+    topic: str
+    level: str
+    mode: str = "STANDARD"
+
 
 @app.get("/")
 def root():
@@ -44,6 +51,20 @@ def root():
         "assistant": "Cynthia"
     }
 
+
+@app.post("/study-session")
+def create_study_session(request: StudySessionRequest):
+    session = StudySession(
+        subject=request.subject,
+        topic=request.topic,
+        level=request.level,
+        mode=request.mode,
+    )
+
+    return {
+        "status": "created",
+        "session": session.__dict__,
+    }
 
 @app.get("/profile")
 def profile():
