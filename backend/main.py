@@ -2,12 +2,17 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from ai.cynthia import ask_cynthia
-from backend.memory import load_memory, save_memory
-
+from backend.database import (
+    init_db,
+    save_message,
+    get_messages,
+    save_memory,
+    get_memories,
+)
 
 app = FastAPI(title="Cynlith API")
 
-conversation_history: list[dict] = load_memory()
+init_db()
 
 
 class ChatRequest(BaseModel):
@@ -28,23 +33,28 @@ def root():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_with_cynthia(request: ChatRequest):
-    global conversation_history
+    history = get_messages()
+    memories = get_memories()
 
-    response = ask_cynthia(
-        message=request.message,
-        history=conversation_history,
+    memory_context = "\n".join(
+        f"{item['key']}: {item['value']}"
+        for item in memories
     )
 
-    conversation_history.append({
-        "role": "user",
-        "content": request.message,
-    })
+    enhanced_message = request.message
 
-    conversation_history.append({
-        "role": "assistant",
-        "content": response,
-    })
+    if memory_context:
+        enhanced_message = (
+            f"Known learner information:\n{memory_context}\n\n"
+            f"Learner's message:\n{request.message}"
+        )
 
-    save_memory(conversation_history)
+    response = ask_cynthia(
+        message=enhanced_message,
+        history=history,
+    )
+
+    save_message("user", request.message)
+    save_message("assistant", response)
 
     return ChatResponse(response=response)
