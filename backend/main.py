@@ -127,6 +127,8 @@ def evaluate_answer(request: AnswerEvaluationRequest):
         "status": "evaluated",
         "evaluation": evaluation,
         "progress": progress.__dict__,
+        "learning_status": progress.get_status(),
+        "next_action": progress.get_next_action(),
     }
 
 @app.get("/profile")
