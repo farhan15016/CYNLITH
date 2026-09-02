@@ -1,4 +1,5 @@
 from backend.study import StudySession
+from backend.assessment import Assessment
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -44,6 +45,20 @@ class StudySessionRequest(BaseModel):
     mode: str = "STANDARD"
 
 
+class AssessmentRequest(BaseModel):
+    subject: str
+    topic: str
+    level: str
+    mode: str = "STANDARD"
+
+class AnswerEvaluationRequest(BaseModel):
+    subject: str
+    topic: str
+    level: str
+    mode: str = "STANDARD"
+    question: str
+    answer: str
+
 @app.get("/")
 def root():
     return {
@@ -68,6 +83,43 @@ def create_study_session(request: StudySessionRequest):
         "session": session.__dict__,
         "lesson": lesson,
     }
+
+@app.post("/assessment")
+def create_assessment(request: AssessmentRequest):
+    assessment = Assessment(
+        subject=request.subject,
+        topic=request.topic,
+        level=request.level,
+        mode=request.mode,
+    )
+
+    question = assessment.generate_question()
+
+    return {
+        "status": "created",
+        "assessment": assessment.__dict__,
+        "question": question,
+    }
+
+@app.post("/evaluate-answer")
+def evaluate_answer(request: AnswerEvaluationRequest):
+    assessment = Assessment(
+        subject=request.subject,
+        topic=request.topic,
+        level=request.level,
+        mode=request.mode,
+    )
+
+    evaluation = assessment.evaluate_answer(
+        request.question,
+        request.answer,
+    )
+
+    return {
+        "status": "evaluated",
+        "evaluation": evaluation,
+    }
+
 
 @app.get("/profile")
 def profile():
