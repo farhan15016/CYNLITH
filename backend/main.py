@@ -87,6 +87,13 @@ def create_study_session(request: StudySessionRequest):
 
 @app.post("/assessment")
 def create_assessment(request: AssessmentRequest):
+    progress = LearningProgress(
+        subject=request.subject,
+        topic=request.topic,
+    )
+
+    difficulty = progress.get_next_level()
+
     assessment = Assessment(
         subject=request.subject,
         topic=request.topic,
@@ -94,13 +101,16 @@ def create_assessment(request: AssessmentRequest):
         mode=request.mode,
     )
 
-    question = assessment.generate_question()
+    question = assessment.generate_question(difficulty)
 
     return {
         "status": "created",
         "assessment": assessment.__dict__,
+        "difficulty": difficulty,
         "question": question,
+        "learning_status": progress.get_status(),
     }
+
 
 @app.post("/evaluate-answer")
 def evaluate_answer(request: AnswerEvaluationRequest):

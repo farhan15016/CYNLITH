@@ -112,6 +112,18 @@ class LearningProgress:
         else:
             return "Strong"
 
+    def get_next_level(self) -> str:
+        status = self.get_status()
+
+        if status == "Needs Review":
+            return "Beginner"
+        elif status == "Improving":
+            return "Intermediate"
+        elif status == "Strong":
+            return "Advanced"
+
+        return "Beginner"
+
     def get_next_action(self) -> str:
         status = self.get_status()
 
