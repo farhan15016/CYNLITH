@@ -41,3 +41,9 @@ example
 # generated native folders
 /ios
 /android
+
+# Local runtime data
+__pycache__/
+*.pyc
+backend/conversation_memory.json
+backend/cynlith.db
