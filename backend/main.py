@@ -81,7 +81,7 @@ def update_subject(request: SubjectRequest):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_with_cynthia(request: ChatRequest):
-    history = get_messages()
+    history = get_messages()[-20:]
     profile_data = get_profile()
     subjects_data = get_subjects()
     memories = get_memories()
