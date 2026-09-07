@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from backend.progress import LearningProgress
 from backend.study import StudySession
 from backend.assessment import Assessment
@@ -17,6 +18,14 @@ from backend.database import (
 )
 
 app = FastAPI(title="Cynlith API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 init_db()
 
