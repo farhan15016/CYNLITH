@@ -133,14 +133,19 @@ def evaluate_answer(request: AnswerEvaluationRequest):
 
     progress.record_result(evaluation)
 
+    next_difficulty = progress.get_next_level()
+
+    next_question = assessment.generate_question(next_difficulty)
+
     return {
         "status": "evaluated",
         "evaluation": evaluation,
         "progress": progress.__dict__,
         "learning_status": progress.get_status(),
         "next_action": progress.get_next_action(),
+        "next_difficulty": next_difficulty,
+        "next_question": next_question,
     }
-
 @app.get("/profile")
 def profile():
     return {
