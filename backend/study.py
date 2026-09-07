@@ -1,4 +1,6 @@
+import json
 from dataclasses import dataclass
+
 from ai.cynthia import ask_cynthia
 
 
@@ -9,24 +11,75 @@ class StudySession:
     level: str
     mode: str = "STANDARD"
 
-    def generate_lesson(self) -> str:
+    def generate_lesson(self) -> dict:
         prompt = f"""
-You are starting a study session.
+You are Cynthia, an expert AI learning companion.
+
+Create a structured lesson for a learner.
 
 Subject: {self.subject}
 Topic: {self.topic}
 Learner level: {self.level}
 Teaching mode: {self.mode}
 
-Teach this topic as the first lesson of the study session.
+Your goal is to teach the topic clearly and progressively.
 
-Start with the core idea, then explain how it works and give a simple example.
-Adapt the explanation to the learner's level and teaching mode.
-Do not assume the learner already understands advanced concepts.
-End with one short question to check their understanding.
+Return ONLY valid JSON.
+Do not use Markdown code fences.
+Do not add any text before or after the JSON.
+
+Use exactly this structure:
+
+{{
+  "title": "Lesson title",
+  "core_idea": "The most important idea the learner should understand.",
+  "explanation": "A clear explanation adapted to the learner's level.",
+  "example": "A simple and useful example.",
+  "visual": {{
+    "needed": true,
+    "type": "diagram",
+    "description": "Describe a useful visual that would help explain the concept."
+  }},
+  "video": {{
+    "needed": true,
+    "topic": "Describe what an educational video should explain."
+  }},
+  "quick_check": "One short question that checks understanding."
+}}
+
+Rules:
+- Keep the explanation clear and educational.
+- Start with the fundamental concept.
+- Use an example that makes the idea easier to understand.
+- Set visual.needed to true only when a visual would genuinely improve understanding.
+- Set video.needed to true only when a video would genuinely improve understanding.
+- The visual description must describe the educational purpose of the visual.
+- The video topic must describe what the video should teach.
+- The quick check must not include its answer.
 """
 
-        return ask_cynthia(prompt)
+        response = ask_cynthia(prompt)
+
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError:
+            return {
+                "title": self.topic,
+                "core_idea": response,
+                "explanation": "",
+                "example": "",
+                "visual": {
+                    "needed": False,
+                    "type": "",
+                    "description": "",
+                },
+                "video": {
+                    "needed": False,
+                    "topic": "",
+                },
+                "quick_check": "",
+            }
+
     def generate_check_question(self) -> str:
         prompt = f"""
 Create one short understanding-check question for a learner.
