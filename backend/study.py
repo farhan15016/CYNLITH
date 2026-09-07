@@ -27,3 +27,24 @@ End with one short question to check their understanding.
 """
 
         return ask_cynthia(prompt)
+    def generate_check_question(self) -> str:
+        prompt = f"""
+Create one short understanding-check question for a learner.
+
+Subject: {self.subject}
+Topic: {self.topic}
+Learner level: {self.level}
+Teaching mode: {self.mode}
+
+The question should:
+- Check whether the learner understood the lesson.
+- Match the learner's level.
+- Require a short explanation or reasoning.
+- Be clear and unambiguous.
+- Not require advanced knowledge beyond the topic.
+
+Do not provide the answer.
+Return only the question.
+"""
+
+        return ask_cynthia(prompt)

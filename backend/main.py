@@ -85,6 +85,22 @@ def create_study_session(request: StudySessionRequest):
         "lesson": lesson,
     }
 
+@app.post("/study-check")
+def create_study_check(request: StudySessionRequest):
+    session = StudySession(
+        subject=request.subject,
+        topic=request.topic,
+        level=request.level,
+        mode=request.mode,
+    )
+
+    question = session.generate_check_question()
+
+    return {
+        "status": "created",
+        "question": question,
+    }
+
 @app.post("/assessment")
 def create_assessment(request: AssessmentRequest):
     progress = LearningProgress(
