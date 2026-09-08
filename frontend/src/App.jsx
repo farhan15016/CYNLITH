@@ -3,6 +3,54 @@ import "./App.css";
 
 const API_URL = "http://127.0.0.1:8000";
 
+function parseLesson(rawLesson) {
+  if (!rawLesson) return null;
+
+  if (typeof rawLesson === "object") {
+    return rawLesson;
+  }
+
+  try {
+    return JSON.parse(rawLesson);
+  } catch {
+    return {
+      explanation: rawLesson,
+    };
+  }
+}
+
+function parseEvaluation(rawEvaluation) {
+  if (!rawEvaluation) {
+    return {
+      result: "Evaluated",
+      feedback: "",
+      hint: "",
+    };
+  }
+
+  const feedback = String(rawEvaluation);
+
+  const resultMatch = feedback.match(
+    /Result:\s*(Correct|Partially Correct|Incorrect)/i
+  );
+
+  const feedbackMatch = feedback.match(
+    /Feedback:\s*([\s\S]*?)(?=\nHint:|$)/i
+  );
+
+  const hintMatch = feedback.match(
+    /Hint:\s*([\s\S]*)/i
+  );
+
+  return {
+    result: resultMatch ? resultMatch[1] : "Evaluated",
+    feedback: feedbackMatch
+      ? feedbackMatch[1].trim()
+      : feedback,
+    hint: hintMatch ? hintMatch[1].trim() : "",
+  };
+}
+
 function App() {
   const [subject, setSubject] = useState("");
   const [topic, setTopic] = useState("");
@@ -12,26 +60,22 @@ function App() {
   const [started, setStarted] = useState(false);
   const [lessonStarted, setLessonStarted] = useState(false);
 
-  const [loading, setLoading] = useState(false);
-  const [lessonLoading, setLessonLoading] = useState(false);
-  const [evaluating, setEvaluating] = useState(false);
-
-  const [lesson, setLesson] = useState(null);
   const [session, setSession] = useState(null);
+  const [lesson, setLesson] = useState(null);
+
   const [answer, setAnswer] = useState("");
   const [evaluation, setEvaluation] = useState(null);
+  const [evaluating, setEvaluating] = useState(false);
 
-  // ==========================================
-  // START LEARNING
-  // ==========================================
+  const [error, setError] = useState("");
 
   const startLearning = async () => {
     if (!subject.trim() || !topic.trim()) {
-      alert("Please enter a subject and topic.");
+      setError("Please enter a subject and topic.");
       return;
     }
 
-    setLoading(true);
+    setError("");
 
     try {
       const response = await fetch(`${API_URL}/study-session`, {
@@ -40,95 +84,62 @@ function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          subject: subject.trim(),
-          topic: topic.trim(),
+          subject,
+          topic,
           level,
           mode,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create study session.");
+        throw new Error("Failed to create study session");
       }
 
       const data = await response.json();
 
-      console.log("Study session created:", data);
-
-      // The backend may return lesson as a JSON string.
-      // Convert it into an object before rendering.
-      let lessonData = data.lesson;
-
-      if (typeof lessonData === "string") {
-        try {
-          lessonData = JSON.parse(lessonData);
-        } catch (error) {
-          console.warn("Lesson is not valid JSON:", error);
-        }
-      }
-
-      console.log("Normalized lesson:", lessonData);
-
-      setSession(data.session);
-      setLesson(lessonData);
-      setLessonStarted(false);
-      setAnswer("");
-      setEvaluation(null);
+      setSession(data.session || null);
+      setLesson(parseLesson(data.lesson));
       setStarted(true);
-    } catch (error) {
-      console.error("Study session error:", error);
-
-      alert(
-        "Could not start the study session. Make sure the Cynlith backend is running."
+      setLessonStarted(false);
+      setEvaluation(null);
+      setAnswer("");
+    } catch (err) {
+      console.error(err);
+      setError(
+        "Could not connect to Cynthia. Make sure the backend is running."
       );
-    } finally {
-      setLoading(false);
     }
   };
 
-  // ==========================================
-  // BEGIN LESSON
-  // ==========================================
-
   const beginLesson = () => {
-    setLessonLoading(true);
+    setLessonStarted(true);
 
     setTimeout(() => {
-      setLessonStarted(true);
-      setLessonLoading(false);
+      const lessonElement = document.getElementById("lesson-content");
 
-      setTimeout(() => {
-        const lessonElement =
-          document.getElementById("lesson-content");
-
-        if (lessonElement) {
-          lessonElement.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-        }
-      }, 100);
-    }, 400);
+      if (lessonElement) {
+        lessonElement.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 100);
   };
-
-  // ==========================================
-  // SUBMIT ANSWER
-  // ==========================================
 
   const submitAnswer = async () => {
     if (!answer.trim()) {
-      alert("Please write an answer first.");
+      setError("Write an answer before checking it.");
       return;
     }
 
-    if (!lesson?.quick_check) {
-      alert("No quick-check question is available.");
-      return;
-    }
-
+    setError("");
     setEvaluating(true);
 
     try {
+      const question =
+        lesson?.quick_check ||
+        "Explain the main idea of this topic.";
+
       const response = await fetch(`${API_URL}/evaluate-answer`, {
         method: "POST",
         headers: {
@@ -139,55 +150,67 @@ function App() {
           topic,
           level,
           mode,
-          question: lesson.quick_check,
-          answer: answer.trim(),
+          question,
+          answer,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to evaluate answer.");
+        throw new Error("Failed to evaluate answer");
       }
 
       const data = await response.json();
 
-      console.log("Answer evaluation:", data);
-
-      setEvaluation(data);
-    } catch (error) {
-      console.error("Answer evaluation error:", error);
-
-      alert(
-        "Could not evaluate your answer. Make sure the Cynlith backend is running."
-      );
+      setEvaluation({
+        ...data,
+        parsed: parseEvaluation(data.evaluation),
+      });
+    } catch (err) {
+      console.error(err);
+      setError("Cynthia could not evaluate the answer.");
     } finally {
       setEvaluating(false);
     }
   };
 
-  // ==========================================
-  // START ANOTHER TOPIC
-  // ==========================================
+  const continueLearning = () => {
+    if (!evaluation?.next_question) return;
+
+    setLesson((previousLesson) => ({
+      ...previousLesson,
+      quick_check: evaluation.next_question,
+    }));
+
+    setAnswer("");
+    setEvaluation(null);
+
+    setTimeout(() => {
+      const quickCheck = document.querySelector(".quick-check-card");
+
+      if (quickCheck) {
+        quickCheck.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }, 100);
+  };
 
   const startOver = () => {
     setStarted(false);
     setLessonStarted(false);
-    setLesson(null);
     setSession(null);
-    setAnswer("");
+    setLesson(null);
     setEvaluation(null);
+    setAnswer("");
+    setError("");
+    setSubject("");
+    setTopic("");
   };
-
-  // ==========================================
-  // RENDER
-  // ==========================================
 
   return (
     <div className="app">
-
-      {/* =====================================
-          NAVBAR
-      ====================================== */}
-
+      {/* NAVBAR */}
       <header className="navbar">
         <div className="brand">
           <div className="brand-icon">C</div>
@@ -201,14 +224,16 @@ function App() {
       </header>
 
       <main className="main-content">
+        {/* ERROR */}
+        {error && (
+          <div className="error-message">
+            ⚠️ {error}
+          </div>
+        )}
 
-        {/* =====================================
-            HOME SCREEN
-        ====================================== */}
-
-        {!started ? (
+        {/* START SCREEN */}
+        {!started && (
           <section className="welcome">
-
             <div className="hero-badge">
               YOUR AI LEARNING COMPANION
             </div>
@@ -225,7 +250,6 @@ function App() {
             </p>
 
             <div className="learning-card">
-
               <h2>What do you want to learn?</h2>
 
               <label>Subject</label>
@@ -233,7 +257,7 @@ function App() {
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g. Physics, Biology, Java..."
+                placeholder="e.g. Physics, Java, Biology..."
               />
 
               <label>Topic</label>
@@ -245,7 +269,6 @@ function App() {
               />
 
               <div className="options">
-
                 <div>
                   <label>Level</label>
 
@@ -266,396 +289,212 @@ function App() {
                     value={mode}
                     onChange={(e) => setMode(e.target.value)}
                   >
-                    <option value="SIMPLE">
-                      Simple
-                    </option>
-
-                    <option value="STANDARD">
-                      Standard
-                    </option>
-
-                    <option value="HARDCORE">
-                      Hardcore
-                    </option>
+                    <option value="SIMPLE">Simple</option>
+                    <option value="STANDARD">Standard</option>
+                    <option value="HARDCORE">Hardcore</option>
                   </select>
                 </div>
-
               </div>
 
               <button
                 className="start-button"
                 onClick={startLearning}
-                disabled={loading}
               >
-                {loading
-                  ? "Creating Lesson..."
-                  : "Start Learning →"}
+                Start Learning →
               </button>
-
             </div>
           </section>
-        ) : (
+        )}
 
-          /* =====================================
-             STUDY SCREEN
-          ====================================== */
-
+        {/* STUDY SCREEN */}
+        {started && (
           <section className="study-screen">
 
             {/* STUDY HEADER */}
-
             <div className="study-header">
-
               <div>
-                <p className="eyebrow">
-                  {subject}
-                </p>
-
-                <h1>
-                  {topic}
-                </h1>
+                <p className="eyebrow">{subject}</p>
+                <h1>{topic}</h1>
               </div>
 
               <div className="session-info">
                 <span>{level}</span>
                 <span>{mode}</span>
               </div>
-
             </div>
 
-
-            {/* =================================
-                CYNTHIA INTRO
-            ================================== */}
-
+            {/* CYNTHIA INTRO */}
             <div className="lesson-card">
-
-              <div className="cynthia-avatar">
-                C
-              </div>
+              <div className="cynthia-avatar">C</div>
 
               <div>
-
-                <p className="eyebrow">
-                  CYNTHIA
-                </p>
+                <p className="eyebrow">CYNTHIA</p>
 
                 <h2>
                   Let's learn this together.
                 </h2>
 
                 <p>
-                  Your personalized lesson is ready.
-                  Cynthia will explain the concept,
-                  show examples, and check your
-                  understanding.
+                  Your personalized study session is ready.
+                  Cynthia will explain the topic and then check
+                  whether you really understood it.
                 </p>
 
                 <button
                   className="continue-button"
                   onClick={beginLesson}
-                  disabled={lessonLoading}
                 >
-                  {lessonLoading
-                    ? "Opening Lesson..."
+                  {lessonStarted
+                    ? "Lesson Started ✓"
                     : "Begin Lesson →"}
                 </button>
-
               </div>
-
             </div>
 
+            {/* SESSION INFORMATION */}
+            {session && (
+              <div className="session-summary">
+                <p className="eyebrow">SESSION</p>
 
-            {/* =================================
-                LESSON CONTENT
-            ================================== */}
+                <p>
+                  Cynthia is adapting this learning session
+                  to your level.
+                </p>
+              </div>
+            )}
 
+            {/* LESSON */}
             {lesson && lessonStarted && (
-
               <div
                 className="lesson-content"
                 id="lesson-content"
               >
-
                 <div className="lesson-label">
                   CYNTHIA'S LESSON
                 </div>
 
-
-                {/* =================================
-                    CORE IDEA
-                ================================== */}
-
+                {/* CORE IDEA */}
                 {lesson.core_idea && (
-
                   <div className="lesson-section">
-
-                    <div className="section-icon">
-                      💡
-                    </div>
+                    <div className="section-icon">💡</div>
 
                     <div>
-                      <h3>
-                        Core Idea
-                      </h3>
+                      <h3>Core Idea</h3>
 
-                      <p>
-                        {lesson.core_idea}
-                      </p>
+                      <p>{lesson.core_idea}</p>
                     </div>
-
                   </div>
-
                 )}
 
-
-                {/* =================================
-                    EXPLANATION
-                ================================== */}
-
+                {/* EXPLANATION */}
                 {lesson.explanation && (
-
                   <div className="lesson-section">
-
-                    <div className="section-icon">
-                      📖
-                    </div>
+                    <div className="section-icon">🧠</div>
 
                     <div>
-                      <h3>
-                        How It Works
-                      </h3>
+                      <h3>Let's Understand It</h3>
 
-                      <p>
-                        {lesson.explanation}
-                      </p>
+                      <p>{lesson.explanation}</p>
                     </div>
-
                   </div>
-
                 )}
 
-
-                {/* =================================
-                    EXAMPLE
-                ================================== */}
-
+                {/* EXAMPLE */}
                 {lesson.example && (
+                  <div className="lesson-section example-section">
+                    <div className="section-icon">🎯</div>
 
-                  <div className="lesson-section">
+                    <div>
+                      <h3>Example</h3>
 
-                    <div className="section-icon">
-                      🌎
+                      <p>{lesson.example}</p>
                     </div>
+                  </div>
+                )}
+
+                {/* EQUATION */}
+                {lesson.equation && (
+                  <div className="equation-card">
+                    <div className="section-icon">📐</div>
+
+                    <div>
+                      <h3>Key Equation</h3>
+
+                      <div className="equation">
+                        {lesson.equation}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* VISUAL */}
+                {lesson.visual?.needed && (
+                  <div className="visual-card">
+                    <div className="section-icon">👀</div>
 
                     <div>
                       <h3>
-                        Real-World Example
+                        {lesson.visual.title ||
+                          "Visual Explanation"}
                       </h3>
 
                       <p>
-                        {lesson.example}
-                      </p>
-                    </div>
-
-                  </div>
-
-                )}
-
-
-                {/* =================================
-                    VISUAL EXPLANATION
-                ================================== */}
-
-                {lesson.visual && (
-
-                  <div className="visual-learning-card">
-
-                    <div className="visual-header">
-
-                      <div className="media-icon">
-                        🖼️
-                      </div>
-
-                      <div>
-                        <p className="eyebrow">
-                          VISUAL LEARNING
-                        </p>
-
-                        <h3>
-                          Visual Explanation
-                        </h3>
-                      </div>
-
-                    </div>
-
-
-                    <div className="visual-stage">
-
-                      <div className="visual-grid">
-
-                        <div className="visual-node visual-node-main">
-
-                          <span>
-                            CONCEPT
-                          </span>
-
-                          <strong>
-                            {topic}
-                          </strong>
-
-                        </div>
-
-
-                        <div className="visual-arrow">
-                          →
-                        </div>
-
-
-                        <div className="visual-node">
-
-                          <span>
-                            UNDERSTAND
-                          </span>
-
-                          <strong>
-                            {typeof lesson.visual === "string"
-                              ? lesson.visual
-                              : lesson.visual.description ||
-                                "See how the concept works visually."}
-                          </strong>
-
-                        </div>
-
-                      </div>
-
-
-                      {typeof lesson.visual !== "string" &&
-                        lesson.visual.equation && (
-
-                          <div className="visual-equation">
-                            {lesson.visual.equation}
-                          </div>
-
-                        )}
-
-
-                      {typeof lesson.visual !== "string" &&
-                        lesson.visual.labels &&
-                        Array.isArray(lesson.visual.labels) && (
-
-                          <div className="visual-labels">
-
-                            {lesson.visual.labels.map(
-                              (label, index) => (
-
-                                <span key={index}>
-                                  {label}
-                                </span>
-
-                              )
-                            )}
-
-                          </div>
-
-                        )}
-
-                    </div>
-
-
-                    <p className="visual-description">
-
-                      {typeof lesson.visual === "string"
-                        ? lesson.visual
-                        : lesson.visual.description ||
-                          "Cynthia created this visual to make the concept easier to understand."}
-
-                    </p>
-
-                  </div>
-
-                )}
-
-
-                {/* =================================
-                    VIDEO
-                ================================== */}
-
-                {lesson.video && (
-
-                  <div className="media-card">
-
-                    <div className="media-icon">
-                      🎥
-                    </div>
-
-                    <div>
-
-                      <p className="eyebrow">
-                        REINFORCE
+                        {lesson.visual.description ||
+                          "Cynthia recommends a visual explanation for this concept."}
                       </p>
 
-                      <h3>
-                        Watch & Learn
-                      </h3>
-
-                      {typeof lesson.video === "string" ? (
-
-                        <p>
-                          {lesson.video}
-                        </p>
-
-                      ) : (
-
-                        <p>
-                          {lesson.video.description ||
-                            "A short educational video can reinforce this concept."}
-                        </p>
-
+                      {lesson.visual.labels?.length > 0 && (
+                        <div className="visual-labels">
+                          {lesson.visual.labels.map(
+                            (label, index) => (
+                              <span key={index}>
+                                {label}
+                              </span>
+                            )
+                          )}
+                        </div>
                       )}
-
-                      {typeof lesson.video !== "string" &&
-                        lesson.video.needed && (
-
-                          <span className="media-status">
-                            Video learning recommended
-                          </span>
-
-                        )}
-
                     </div>
-
                   </div>
-
                 )}
 
+                {/* VIDEO */}
+                {lesson.video?.needed && (
+                  <div className="media-card">
+                    <div className="section-icon">🎥</div>
 
-                {/* =================================
-                    QUICK CHECK
-                ================================== */}
+                    <div>
+                      <h3>Video Learning Recommended</h3>
 
+                      <p>
+                        {lesson.video.description ||
+                          "A video could help reinforce this concept."}
+                      </p>
+
+                      <span className="media-status">
+                        Video learning recommended
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* QUICK CHECK */}
                 {lesson.quick_check && (
-
                   <div className="quick-check-card">
-
                     <div className="quick-check-icon">
-                      🧩
+                      🎯
                     </div>
 
                     <div>
-
                       <p className="eyebrow">
                         TEST YOUR UNDERSTANDING
                       </p>
 
-                      <h3>
-                        Quick Check
-                      </h3>
+                      <h3>Quick Check</h3>
 
-                      <p>
+                      <p className="question">
                         {lesson.quick_check}
                       </p>
-
 
                       <textarea
                         className="answer-box"
@@ -667,7 +506,6 @@ function App() {
                         rows={5}
                       />
 
-
                       <button
                         className="continue-button"
                         onClick={submitAnswer}
@@ -677,118 +515,136 @@ function App() {
                           ? "Cynthia is thinking..."
                           : "Check My Answer →"}
                       </button>
+                    </div>
+                  </div>
+                )}
 
+                {/* EVALUATION */}
+                {evaluation && (
+                  <div className="evaluation-card">
+                    <p className="eyebrow">
+                      CYNTHIA'S FEEDBACK
+                    </p>
 
-                      {/* =================================
-                          EVALUATION
-                      ================================== */}
+                    {/* RESULT */}
+                    <div
+                      className={`evaluation-result ${evaluation.parsed.result
+                        .toLowerCase()
+                        .replaceAll(" ", "-")}`}
+                    >
+                      <span className="evaluation-result-icon">
+                        {evaluation.parsed.result
+                          .toLowerCase()
+                          .includes("correct") &&
+                        !evaluation.parsed.result
+                          .toLowerCase()
+                          .includes("incorrect")
+                          ? "✅"
+                          : evaluation.parsed.result
+                              .toLowerCase()
+                              .includes("partial")
+                          ? "🟡"
+                          : "❌"}
+                      </span>
 
-                      {evaluation && (
+                      <div>
+                        <span className="evaluation-result-label">
+                          Result
+                        </span>
 
-                        <div className="evaluation-card">
-
-                          <p className="eyebrow">
-                            CYNTHIA'S FEEDBACK
-                          </p>
-
-                          {evaluation.evaluation ? (
-                            <p>
-                              {evaluation.evaluation}
-                            </p>
-                          ) : (
-                            <p>
-                              {JSON.stringify(
-                                evaluation
-                              )}
-                            </p>
-                          )}
-
-                          {evaluation.learning_status && (
-
-                            <div className="learning-status">
-
-                              <strong>
-                                Learning Status
-                              </strong>
-
-                              <span>
-                                {evaluation.learning_status}
-                              </span>
-
-                            </div>
-
-                          )}
-
-                          {evaluation.next_action && (
-
-                            <div className="next-action">
-
-                              <strong>
-                                Next Step
-                              </strong>
-
-                              <p>
-                                {evaluation.next_action}
-                              </p>
-
-                            </div>
-
-                          )}
-
-                        </div>
-
-                      )}
-
+                        <strong>
+                          {evaluation.parsed.result}
+                        </strong>
+                      </div>
                     </div>
 
-                  </div>
+                    {/* FEEDBACK */}
+                    {evaluation.parsed.feedback && (
+                      <div className="feedback-section">
+                        <h4>💬 Cynthia's Feedback</h4>
 
+                        <p>
+                          {evaluation.parsed.feedback}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* HINT */}
+                    {evaluation.parsed.hint &&
+                      evaluation.parsed.hint !== "..." && (
+                        <div className="hint-section">
+                          <h4>💡 Hint</h4>
+
+                          <p>
+                            {evaluation.parsed.hint}
+                          </p>
+                        </div>
+                      )}
+
+                    {/* LEARNING STATUS */}
+                    {evaluation.learning_status && (
+                      <div className="learning-status">
+                        <span className="status-label">
+                          📈 Learning Status
+                        </span>
+
+                        <strong>
+                          {evaluation.learning_status}
+                        </strong>
+                      </div>
+                    )}
+
+                    {/* NEXT ACTION */}
+                    {evaluation.next_action && (
+                      <div className="next-action">
+                        <span className="status-label">
+                          🎯 Cynthia's Recommendation
+                        </span>
+
+                        <p>
+                          {evaluation.next_action}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* NEXT QUESTION */}
+                    {evaluation.next_question && (
+                      <div className="next-question-card">
+                        <div>
+                          <span className="status-label">
+                            🚀 Ready for the next challenge?
+                          </span>
+
+                          <p>
+                            Cynthia has adapted the next
+                            question based on your
+                            performance.
+                          </p>
+                        </div>
+
+                        <button
+                          className="continue-button"
+                          onClick={continueLearning}
+                        >
+                          Continue Learning →
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
-
-                {/* =================================
-                    SESSION INFORMATION
-                ================================== */}
-
-                {session && (
-
-                  <div className="session-summary">
-
-                    <p className="eyebrow">
-                      SESSION
-                    </p>
-
-                    <p>
-                      Cynthia is adapting this
-                      learning session to your level.
-                    </p>
-
-                  </div>
-
-                )}
-
-
-                {/* =================================
-                    START ANOTHER TOPIC
-                ================================== */}
-
+                {/* START ANOTHER TOPIC */}
                 <button
                   className="secondary-button"
                   onClick={startOver}
                 >
                   ← Start Another Topic
                 </button>
-
               </div>
-
             )}
-
           </section>
-
         )}
-
       </main>
-
     </div>
   );
 }
