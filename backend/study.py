@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 
 from ai.cynthia import ask_cynthia
@@ -11,74 +10,104 @@ class StudySession:
     level: str
     mode: str = "STANDARD"
 
-    def generate_lesson(self) -> dict:
+    def generate_lesson(self) -> str:
         prompt = f"""
-You are Cynthia, an expert AI learning companion.
+You are Cynthia, the AI learning companion inside Cynlith.
 
-Create a structured lesson for a learner.
+You are creating a personalized lesson for a learner.
 
 Subject: {self.subject}
 Topic: {self.topic}
 Learner level: {self.level}
 Teaching mode: {self.mode}
 
-Your goal is to teach the topic clearly and progressively.
+Create a clear, structured lesson.
 
-Return ONLY valid JSON.
-Do not use Markdown code fences.
-Do not add any text before or after the JSON.
+The lesson must contain these sections:
+
+1. core_idea
+- Explain the central idea in a simple and accurate way.
+- Keep it appropriate for the learner's level.
+
+2. explanation
+- Explain how the concept works.
+- Use reasoning, steps, relationships, or mechanisms where appropriate.
+
+3. example
+- Give one useful real-world or practical example.
+
+4. visual
+Create a structured visual-learning description.
+
+The visual object MUST contain:
+
+- needed: true or false
+- type: one of "diagram", "flowchart", "comparison", "timeline", "formula", "process", or "none"
+- title: short title for the visual
+- description: explain what the learner should see
+- equation: an important equation if one exists, otherwise ""
+- labels: an array of short labels
+- relationships: an array describing how the labels/concepts connect
+
+The visual should help the learner understand the concept rather than simply decorate the lesson.
+
+Examples:
+
+For Physics:
+labels could be ["Force", "Mass", "Acceleration"]
+relationships could be ["Force causes acceleration", "More mass requires more force"]
+
+For Electronics:
+labels could be ["Voltage", "Resistance", "Current"]
+relationships could be ["Voltage drives current", "Resistance limits current"]
+
+For Biology:
+labels could be ["DNA", "RNA", "Protein"]
+relationships could be ["DNA stores information", "RNA carries information", "RNA helps produce proteins"]
+
+For Mathematics:
+labels could describe the important quantities or steps.
+
+For Programming:
+labels could represent classes, objects, methods, inputs, outputs, or other important concepts.
+
+5. video
+Provide a short recommendation describing what kind of educational video would reinforce the concept.
+
+6. quick_check
+Create one short question that checks whether the learner understood the lesson.
+Do not provide the answer.
+
+IMPORTANT:
+- Return ONLY valid JSON.
+- Do not use Markdown.
+- Do not put the JSON inside ``` fences.
+- Do not add commentary before or after the JSON.
 
 Use exactly this structure:
 
 {{
-  "title": "Lesson title",
-  "core_idea": "The most important idea the learner should understand.",
-  "explanation": "A clear explanation adapted to the learner's level.",
-  "example": "A simple and useful example.",
+  "core_idea": "...",
+  "explanation": "...",
+  "example": "...",
   "visual": {{
     "needed": true,
     "type": "diagram",
-    "description": "Describe a useful visual that would help explain the concept."
+    "title": "...",
+    "description": "...",
+    "equation": "...",
+    "labels": ["...", "...", "..."],
+    "relationships": ["...", "..."]
   }},
   "video": {{
     "needed": true,
-    "topic": "Describe what an educational video should explain."
+    "description": "..."
   }},
-  "quick_check": "One short question that checks understanding."
+  "quick_check": "..."
 }}
-
-Rules:
-- Keep the explanation clear and educational.
-- Start with the fundamental concept.
-- Use an example that makes the idea easier to understand.
-- Set visual.needed to true only when a visual would genuinely improve understanding.
-- Set video.needed to true only when a video would genuinely improve understanding.
-- The visual description must describe the educational purpose of the visual.
-- The video topic must describe what the video should teach.
-- The quick check must not include its answer.
 """
 
-        response = ask_cynthia(prompt)
-
-        try:
-            return json.loads(response)
-        except json.JSONDecodeError:
-            return {
-                "title": self.topic,
-                "core_idea": response,
-                "explanation": "",
-                "example": "",
-                "visual": {
-                    "needed": False,
-                    "type": "",
-                    "description": "",
-                },
-                "video": {
-                    "needed": False,
-                    "topic": "",
-                },
-                "quick_check": "",
-            }
+        return ask_cynthia(prompt)
 
     def generate_check_question(self) -> str:
         prompt = f"""
@@ -97,6 +126,7 @@ The question should:
 - Not require advanced knowledge beyond the topic.
 
 Do not provide the answer.
+
 Return only the question.
 """
 

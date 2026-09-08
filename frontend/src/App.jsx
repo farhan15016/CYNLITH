@@ -14,17 +14,16 @@ function App() {
 
   const [loading, setLoading] = useState(false);
   const [lessonLoading, setLessonLoading] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
 
   const [lesson, setLesson] = useState(null);
   const [session, setSession] = useState(null);
-
   const [answer, setAnswer] = useState("");
   const [evaluation, setEvaluation] = useState(null);
-  const [evaluating, setEvaluating] = useState(false);
 
-  // =========================
+  // ==========================================
   // START LEARNING
-  // =========================
+  // ==========================================
 
   const startLearning = async () => {
     if (!subject.trim() || !topic.trim()) {
@@ -56,11 +55,25 @@ function App() {
 
       console.log("Study session created:", data);
 
+      // The backend may return lesson as a JSON string.
+      // Convert it into an object before rendering.
+      let lessonData = data.lesson;
+
+      if (typeof lessonData === "string") {
+        try {
+          lessonData = JSON.parse(lessonData);
+        } catch (error) {
+          console.warn("Lesson is not valid JSON:", error);
+        }
+      }
+
+      console.log("Normalized lesson:", lessonData);
+
       setSession(data.session);
-      setLesson(data.lesson);
+      setLesson(lessonData);
       setLessonStarted(false);
-      setEvaluation(null);
       setAnswer("");
+      setEvaluation(null);
       setStarted(true);
     } catch (error) {
       console.error("Study session error:", error);
@@ -73,9 +86,9 @@ function App() {
     }
   };
 
-  // =========================
+  // ==========================================
   // BEGIN LESSON
-  // =========================
+  // ==========================================
 
   const beginLesson = () => {
     setLessonLoading(true);
@@ -85,9 +98,8 @@ function App() {
       setLessonLoading(false);
 
       setTimeout(() => {
-        const lessonElement = document.getElementById(
-          "lesson-content"
-        );
+        const lessonElement =
+          document.getElementById("lesson-content");
 
         if (lessonElement) {
           lessonElement.scrollIntoView({
@@ -99,9 +111,9 @@ function App() {
     }, 400);
   };
 
-  // =========================
+  // ==========================================
   // SUBMIT ANSWER
-  // =========================
+  // ==========================================
 
   const submitAnswer = async () => {
     if (!answer.trim()) {
@@ -117,23 +129,20 @@ function App() {
     setEvaluating(true);
 
     try {
-      const response = await fetch(
-        `${API_URL}/evaluate-answer`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            subject,
-            topic,
-            level,
-            mode,
-            question: lesson.quick_check,
-            answer: answer.trim(),
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/evaluate-answer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subject,
+          topic,
+          level,
+          mode,
+          question: lesson.quick_check,
+          answer: answer.trim(),
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to evaluate answer.");
@@ -155,9 +164,9 @@ function App() {
     }
   };
 
-  // =========================
-  // START OVER
-  // =========================
+  // ==========================================
+  // START ANOTHER TOPIC
+  // ==========================================
 
   const startOver = () => {
     setStarted(false);
@@ -168,45 +177,36 @@ function App() {
     setEvaluation(null);
   };
 
+  // ==========================================
+  // RENDER
+  // ==========================================
+
   return (
     <div className="app">
 
-      {/* =========================================
+      {/* =====================================
           NAVBAR
-      ========================================= */}
+      ====================================== */}
 
       <header className="navbar">
-
         <div className="brand">
-          <div className="brand-icon">
-            C
-          </div>
-
+          <div className="brand-icon">C</div>
           <span>Cynlith</span>
         </div>
 
         <div className="nav-status">
-
-          <span>
-            🔥 0 day streak
-          </span>
-
-          <span>
-            ⭐ 0 XP
-          </span>
-
+          <span>🔥 0 day streak</span>
+          <span>⭐ 0 XP</span>
         </div>
-
       </header>
 
       <main className="main-content">
 
-        {/* =========================================
+        {/* =====================================
             HOME SCREEN
-        ========================================= */}
+        ====================================== */}
 
         {!started ? (
-
           <section className="welcome">
 
             <div className="hero-badge">
@@ -216,96 +216,56 @@ function App() {
             <h1>
               Learn anything.
               <br />
-
-              <span>
-                Understand everything.
-              </span>
+              <span>Understand everything.</span>
             </h1>
 
             <p className="subtitle">
-              Cynthia adapts to your level, teaches
-              step-by-step, and helps you actually
-              understand what you study.
+              Cynthia adapts to your level, teaches step-by-step,
+              and helps you actually understand what you study.
             </p>
 
             <div className="learning-card">
 
-              <h2>
-                What do you want to learn?
-              </h2>
+              <h2>What do you want to learn?</h2>
 
-              {/* SUBJECT */}
-
-              <label>
-                Subject
-              </label>
+              <label>Subject</label>
 
               <input
                 value={subject}
-                onChange={(e) =>
-                  setSubject(e.target.value)
-                }
+                onChange={(e) => setSubject(e.target.value)}
                 placeholder="e.g. Physics, Biology, Java..."
               />
 
-              {/* TOPIC */}
-
-              <label>
-                Topic
-              </label>
+              <label>Topic</label>
 
               <input
                 value={topic}
-                onChange={(e) =>
-                  setTopic(e.target.value)
-                }
+                onChange={(e) => setTopic(e.target.value)}
                 placeholder="e.g. Newton's Second Law"
               />
-
-              {/* OPTIONS */}
 
               <div className="options">
 
                 <div>
-
-                  <label>
-                    Level
-                  </label>
+                  <label>Level</label>
 
                   <select
                     value={level}
-                    onChange={(e) =>
-                      setLevel(e.target.value)
-                    }
+                    onChange={(e) => setLevel(e.target.value)}
                   >
-                    <option>
-                      Beginner
-                    </option>
-
-                    <option>
-                      Intermediate
-                    </option>
-
-                    <option>
-                      Advanced
-                    </option>
+                    <option>Beginner</option>
+                    <option>Intermediate</option>
+                    <option>Advanced</option>
                   </select>
-
                 </div>
 
                 <div>
-
-                  <label>
-                    Teaching mode
-                  </label>
+                  <label>Teaching mode</label>
 
                   <select
                     value={mode}
-                    onChange={(e) =>
-                      setMode(e.target.value)
-                    }
+                    onChange={(e) => setMode(e.target.value)}
                   >
-
                     <option value="SIMPLE">
                       Simple
                     </option>
@@ -317,14 +277,10 @@ function App() {
                     <option value="HARDCORE">
                       Hardcore
                     </option>
-
                   </select>
-
                 </div>
 
               </div>
-
-              {/* START BUTTON */}
 
               <button
                 className="start-button"
@@ -337,25 +293,20 @@ function App() {
               </button>
 
             </div>
-
           </section>
-
         ) : (
 
-          /* =========================================
+          /* =====================================
              STUDY SCREEN
-          ========================================= */
+          ====================================== */
 
           <section className="study-screen">
 
-            {/* =====================================
-                STUDY HEADER
-            ===================================== */}
+            {/* STUDY HEADER */}
 
             <div className="study-header">
 
               <div>
-
                 <p className="eyebrow">
                   {subject}
                 </p>
@@ -363,27 +314,19 @@ function App() {
                 <h1>
                   {topic}
                 </h1>
-
               </div>
 
               <div className="session-info">
-
-                <span>
-                  {level}
-                </span>
-
-                <span>
-                  {mode}
-                </span>
-
+                <span>{level}</span>
+                <span>{mode}</span>
               </div>
 
             </div>
 
 
-            {/* =====================================
+            {/* =================================
                 CYNTHIA INTRO
-            ===================================== */}
+            ================================== */}
 
             <div className="lesson-card">
 
@@ -411,13 +354,9 @@ function App() {
                 <button
                   className="continue-button"
                   onClick={beginLesson}
-                  disabled={
-                    lessonLoading || lessonStarted
-                  }
+                  disabled={lessonLoading}
                 >
-                  {lessonStarted
-                    ? "Lesson Opened ✓"
-                    : lessonLoading
+                  {lessonLoading
                     ? "Opening Lesson..."
                     : "Begin Lesson →"}
                 </button>
@@ -427,9 +366,9 @@ function App() {
             </div>
 
 
-            {/* =====================================
+            {/* =================================
                 LESSON CONTENT
-            ===================================== */}
+            ================================== */}
 
             {lesson && lessonStarted && (
 
@@ -445,7 +384,7 @@ function App() {
 
                 {/* =================================
                     CORE IDEA
-                ================================= */}
+                ================================== */}
 
                 {lesson.core_idea && (
 
@@ -456,7 +395,6 @@ function App() {
                     </div>
 
                     <div>
-
                       <h3>
                         Core Idea
                       </h3>
@@ -464,7 +402,6 @@ function App() {
                       <p>
                         {lesson.core_idea}
                       </p>
-
                     </div>
 
                   </div>
@@ -473,8 +410,8 @@ function App() {
 
 
                 {/* =================================
-                    HOW IT WORKS
-                ================================= */}
+                    EXPLANATION
+                ================================== */}
 
                 {lesson.explanation && (
 
@@ -485,7 +422,6 @@ function App() {
                     </div>
 
                     <div>
-
                       <h3>
                         How It Works
                       </h3>
@@ -493,7 +429,6 @@ function App() {
                       <p>
                         {lesson.explanation}
                       </p>
-
                     </div>
 
                   </div>
@@ -502,8 +437,8 @@ function App() {
 
 
                 {/* =================================
-                    REAL WORLD EXAMPLE
-                ================================= */}
+                    EXAMPLE
+                ================================== */}
 
                 {lesson.example && (
 
@@ -514,7 +449,6 @@ function App() {
                     </div>
 
                     <div>
-
                       <h3>
                         Real-World Example
                       </h3>
@@ -522,7 +456,6 @@ function App() {
                       <p>
                         {lesson.example}
                       </p>
-
                     </div>
 
                   </div>
@@ -530,88 +463,123 @@ function App() {
                 )}
 
 
-{/* =================================
-    VISUAL EXPLANATION
-================================= */}
+                {/* =================================
+                    VISUAL EXPLANATION
+                ================================== */}
 
-{lesson.visual && (
-  <div className="visual-learning-card">
+                {lesson.visual && (
 
-    <div className="visual-header">
-      <div className="media-icon">
-        🖼️
-      </div>
+                  <div className="visual-learning-card">
 
-      <div>
-        <p className="eyebrow">
-          VISUAL LEARNING
-        </p>
+                    <div className="visual-header">
 
-        <h3>
-          Visual Explanation
-        </h3>
-      </div>
-    </div>
+                      <div className="media-icon">
+                        🖼️
+                      </div>
 
-    <div className="visual-stage">
+                      <div>
+                        <p className="eyebrow">
+                          VISUAL LEARNING
+                        </p>
 
-      <div className="visual-grid">
+                        <h3>
+                          Visual Explanation
+                        </h3>
+                      </div>
 
-        <div className="visual-node visual-node-main">
-          <span>CONCEPT</span>
+                    </div>
 
-          <strong>
-            {topic}
-          </strong>
-        </div>
 
-        <div className="visual-arrow">
-          →
-        </div>
+                    <div className="visual-stage">
 
-        <div className="visual-node">
-          <span>UNDERSTAND</span>
+                      <div className="visual-grid">
 
-          <strong>
-            {lesson.visual.description ||
-              "See how the concept works visually."}
-          </strong>
-        </div>
+                        <div className="visual-node visual-node-main">
 
-      </div>
+                          <span>
+                            CONCEPT
+                          </span>
 
-      {lesson.visual.equation && (
-        <div className="visual-equation">
-          {lesson.visual.equation}
-        </div>
-      )}
+                          <strong>
+                            {topic}
+                          </strong>
 
-      {lesson.visual.labels &&
-        Array.isArray(lesson.visual.labels) && (
-          <div className="visual-labels">
-            {lesson.visual.labels.map(
-              (label, index) => (
-                <span key={index}>
-                  {label}
-                </span>
-              )
-            )}
-          </div>
-        )}
+                        </div>
 
-    </div>
 
-    <p className="visual-description">
-      {lesson.visual.description ||
-        "Cynthia created this visual to make the concept easier to understand."}
-    </p>
+                        <div className="visual-arrow">
+                          →
+                        </div>
 
-  </div>
-)}
+
+                        <div className="visual-node">
+
+                          <span>
+                            UNDERSTAND
+                          </span>
+
+                          <strong>
+                            {typeof lesson.visual === "string"
+                              ? lesson.visual
+                              : lesson.visual.description ||
+                                "See how the concept works visually."}
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+
+                      {typeof lesson.visual !== "string" &&
+                        lesson.visual.equation && (
+
+                          <div className="visual-equation">
+                            {lesson.visual.equation}
+                          </div>
+
+                        )}
+
+
+                      {typeof lesson.visual !== "string" &&
+                        lesson.visual.labels &&
+                        Array.isArray(lesson.visual.labels) && (
+
+                          <div className="visual-labels">
+
+                            {lesson.visual.labels.map(
+                              (label, index) => (
+
+                                <span key={index}>
+                                  {label}
+                                </span>
+
+                              )
+                            )}
+
+                          </div>
+
+                        )}
+
+                    </div>
+
+
+                    <p className="visual-description">
+
+                      {typeof lesson.visual === "string"
+                        ? lesson.visual
+                        : lesson.visual.description ||
+                          "Cynthia created this visual to make the concept easier to understand."}
+
+                    </p>
+
+                  </div>
+
+                )}
+
 
                 {/* =================================
                     VIDEO
-                ================================= */}
+                ================================== */}
 
                 {lesson.video && (
 
@@ -623,12 +591,15 @@ function App() {
 
                     <div>
 
+                      <p className="eyebrow">
+                        REINFORCE
+                      </p>
+
                       <h3>
                         Watch & Learn
                       </h3>
 
-                      {typeof lesson.video ===
-                      "string" ? (
+                      {typeof lesson.video === "string" ? (
 
                         <p>
                           {lesson.video}
@@ -636,24 +607,21 @@ function App() {
 
                       ) : (
 
-                        <>
-
-                          <p>
-                            {lesson.video.description ||
-                              "A short educational video can reinforce this concept."}
-                          </p>
-
-                          {lesson.video.needed && (
-
-                            <span className="media-status">
-                              Video learning recommended
-                            </span>
-
-                          )}
-
-                        </>
+                        <p>
+                          {lesson.video.description ||
+                            "A short educational video can reinforce this concept."}
+                        </p>
 
                       )}
+
+                      {typeof lesson.video !== "string" &&
+                        lesson.video.needed && (
+
+                          <span className="media-status">
+                            Video learning recommended
+                          </span>
+
+                        )}
 
                     </div>
 
@@ -664,7 +632,7 @@ function App() {
 
                 {/* =================================
                     QUICK CHECK
-                ================================= */}
+                ================================== */}
 
                 {lesson.quick_check && (
 
@@ -676,6 +644,10 @@ function App() {
 
                     <div>
 
+                      <p className="eyebrow">
+                        TEST YOUR UNDERSTANDING
+                      </p>
+
                       <h3>
                         Quick Check
                       </h3>
@@ -683,6 +655,7 @@ function App() {
                       <p>
                         {lesson.quick_check}
                       </p>
+
 
                       <textarea
                         className="answer-box"
@@ -692,8 +665,8 @@ function App() {
                         }
                         placeholder="Explain your answer in your own words..."
                         rows={5}
-                        disabled={evaluating}
                       />
+
 
                       <button
                         className="continue-button"
@@ -705,79 +678,63 @@ function App() {
                           : "Check My Answer →"}
                       </button>
 
-                    </div>
 
-                  </div>
+                      {/* =================================
+                          EVALUATION
+                      ================================== */}
 
-                )}
+                      {evaluation && (
 
+                        <div className="evaluation-card">
 
-                {/* =================================
-                    EVALUATION
-                ================================= */}
+                          <p className="eyebrow">
+                            CYNTHIA'S FEEDBACK
+                          </p>
 
-                {evaluation && (
-
-                  <div className="evaluation-card">
-
-                    <div className="section-icon">
-                      🧠
-                    </div>
-
-                    <div>
-
-                      <h3>
-                        Cynthia's Feedback
-                      </h3>
-
-                      {typeof evaluation.evaluation ===
-                      "string" ? (
-
-                        <div className="evaluation-text">
-                          {evaluation.evaluation}
-                        </div>
-
-                      ) : evaluation.evaluation ? (
-
-                        <div className="evaluation-text">
-
-                          {evaluation.evaluation.result && (
+                          {evaluation.evaluation ? (
                             <p>
-                              <strong>
-                                Result:
-                              </strong>{" "}
-                              {evaluation.evaluation.result}
+                              {evaluation.evaluation}
+                            </p>
+                          ) : (
+                            <p>
+                              {JSON.stringify(
+                                evaluation
+                              )}
                             </p>
                           )}
 
-                          {evaluation.evaluation.feedback && (
-                            <p>
+                          {evaluation.learning_status && (
+
+                            <div className="learning-status">
+
                               <strong>
-                                Feedback:
-                              </strong>{" "}
-                              {evaluation.evaluation.feedback}
-                            </p>
+                                Learning Status
+                              </strong>
+
+                              <span>
+                                {evaluation.learning_status}
+                              </span>
+
+                            </div>
+
                           )}
 
-                          {evaluation.evaluation.hint && (
-                            <p>
+                          {evaluation.next_action && (
+
+                            <div className="next-action">
+
                               <strong>
-                                Hint:
-                              </strong>{" "}
-                              {evaluation.evaluation.hint}
-                            </p>
+                                Next Step
+                              </strong>
+
+                              <p>
+                                {evaluation.next_action}
+                              </p>
+
+                            </div>
+
                           )}
 
-                        </div>
-
-                      ) : (
-
-                        <div className="evaluation-text">
-                          {JSON.stringify(
-                            evaluation,
-                            null,
-                            2
-                          )}
                         </div>
 
                       )}
@@ -790,19 +747,37 @@ function App() {
 
 
                 {/* =================================
-                    SESSION ACTIONS
-                ================================= */}
+                    SESSION INFORMATION
+                ================================== */}
 
-                <div className="lesson-actions">
+                {session && (
 
-                  <button
-                    className="secondary-button"
-                    onClick={startOver}
-                  >
-                    ← Start New Topic
-                  </button>
+                  <div className="session-summary">
 
-                </div>
+                    <p className="eyebrow">
+                      SESSION
+                    </p>
+
+                    <p>
+                      Cynthia is adapting this
+                      learning session to your level.
+                    </p>
+
+                  </div>
+
+                )}
+
+
+                {/* =================================
+                    START ANOTHER TOPIC
+                ================================== */}
+
+                <button
+                  className="secondary-button"
+                  onClick={startOver}
+                >
+                  ← Start Another Topic
+                </button>
 
               </div>
 
